@@ -1,15 +1,17 @@
 package api
 
 import (
-	"log"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/DavidJChavez/internal"
-	api_utils "github.com/DavidJChavez/internal/api"
+	"github.com/DavidJChavez/pkg"
 )
 
-type User struct {
+// Structs
+type UserGET struct {
 	Id       uint      `json:"_id"`
 	Name     string    `json:"name"`
 	LastName string    `json:"lastName"`
@@ -17,22 +19,24 @@ type User struct {
 	Birthday time.Time `json:"birthday"`
 }
 
-type NewUser struct {
+type UserPOST struct {
 	Name     string    `json:"name" required:"true"`
 	LastName string    `json:"lastName"`
 	Email    string    `json:"email"`
 	Birthday time.Time `json:"birthday"`
 }
 
-var UserList []User
+// Constants
+const (
+	uri string = "/api/user"
+)
+
+// Temp DB
+var UserList []UserGET
 
 func AddUserHandlers() {
-	// g := Router.Group("/user")
-	// {
-	// 	g.GET("/", getAllUsers)
-	// 	g.POST("/", createUser)
-	// }
-	http.HandleFunc("/api/user", func(w http.ResponseWriter, r *http.Request) {
+	// Uri with path params
+	http.HandleFunc(uri, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			getAllUsers(w, r)
@@ -42,36 +46,58 @@ func AddUserHandlers() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// Uri with path params
+	http.HandleFunc(uri+"/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			getUserById(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 }
 
 // Endpoints
 
 func getAllUsers(w http.ResponseWriter, r *http.Request) {
-	api_utils.WriteJson(w, http.StatusOK, UserList)
+	pkg.WriteJson(w, http.StatusOK, UserList)
+}
+
+func getUserById(w http.ResponseWriter, r *http.Request) {
+	params := strings.Split(r.URL.Path, "/")
+	id, err := strconv.Atoi(params[len(params)-1])
+	if err != nil {
+		pkg.PrintErr(err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	userIdFound := sort.Search(len(UserList), func(i int) bool {
+		return UserList[i].Id == uint(id)
+	})
+	if userIdFound == len(UserList) {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+	user := UserList[userIdFound]
+	pkg.WriteJson[UserGET](w, http.StatusOK, user)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
-	// decoder := json.NewDecoder(r.Body)
-	// var newUser NewUser
-	// err := decoder.Decode(&newUser)
-	newUser, err := api_utils.GetStructFromJson[NewUser](r.Body)
+	userDto, err := pkg.GetStructFromJson[UserPOST](r.Body)
 	if err != nil {
-		internal.PrintStruct(newUser)
-		log.Println(err)
-		api_utils.WriteJson(w, http.StatusBadRequest, http.StatusBadRequest)
+		pkg.PrintErr(err)
+		pkg.WriteJson(w, http.StatusBadRequest, http.StatusBadRequest)
 		return
 	}
-
-	internal.PrintStruct(newUser)
-
-	UserList = append(UserList, buildUser(newUser))
-
-	api_utils.WriteJson(w, http.StatusOK, newUser)
+	user := newUser(userDto)
+	pkg.PrintStruct(user)
+	UserList = append(UserList, user)
+	pkg.WriteJson(w, http.StatusOK, user)
 }
 
 // Helpers
 
-func buildUser(nu NewUser) User {
+func newUser(nu UserPOST) UserGET {
 	var newId uint
 	if len(UserList) == 0 {
 		newId = 1
@@ -79,7 +105,7 @@ func buildUser(nu NewUser) User {
 		newId = UserList[len(UserList)-1].Id + 1
 	}
 
-	return User{
+	return UserGET{
 		newId,
 		nu.Name,
 		nu.LastName,

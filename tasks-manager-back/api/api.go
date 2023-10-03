@@ -6,11 +6,9 @@ import (
 )
 
 func SetupHandlers() {
-
-	AddWebPage()
-
 	AddUserHandlers()
 
+	AddWebPage()
 	log.Println("Server running at http://localhost:8000")
 	http.ListenAndServe(":8000", nil)
 }
