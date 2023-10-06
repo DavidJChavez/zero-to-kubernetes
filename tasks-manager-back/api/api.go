@@ -3,22 +3,22 @@ package api
 import (
 	"log"
 	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
+var Router *httprouter.Router
+
 func SetupHandlers() {
+	Router = httprouter.New()
+
 	AddUserHandlers()
 
-	AddWebPage()
-	log.Println("Server running at http://localhost:8000")
-	http.ListenAndServe(":8000", nil)
-}
-
-func AddWebPage() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			http.ServeFile(w, r, "./public/index.html")
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
+	// Add Webpage
+	Router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		http.ServeFile(w, r, "./public/index.html")
 	})
+	Router.RedirectTrailingSlash = true
+	log.Println("Server running at http://localhost:8000")
+	log.Fatal(http.ListenAndServe(":8000", Router))
 }

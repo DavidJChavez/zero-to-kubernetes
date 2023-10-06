@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DavidJChavez/pkg"
+	"github.com/julienschmidt/httprouter"
 )
 
 // Structs
@@ -26,47 +26,24 @@ type UserPOST struct {
 	Birthday time.Time `json:"birthday"`
 }
 
-// Constants
-const (
-	uri string = "/api/user"
-)
-
 // Temp DB
 var UserList []UserGET
 
 func AddUserHandlers() {
-	// Uri with path params
-	http.HandleFunc(uri, func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			getAllUsers(w, r)
-		case http.MethodPost:
-			createUser(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	// Uri with path params
-	http.HandleFunc(uri+"/", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			getUserById(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	Router.GET("/api/user", getAllUsers)
+	Router.GET("/api/user/:id", getUserById)
+	Router.POST("/api/user", createUser)
 }
 
 // Endpoints
 
-func getAllUsers(w http.ResponseWriter, r *http.Request) {
+func getAllUsers(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	pkg.WriteJson(w, http.StatusOK, UserList)
 }
 
-func getUserById(w http.ResponseWriter, r *http.Request) {
-	params := strings.Split(r.URL.Path, "/")
-	id, err := strconv.Atoi(params[len(params)-1])
-	if err != nil {
+func getUserById(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	id, err := strconv.Atoi(p.ByName("id"))
+	if err != err {
 		pkg.PrintErr(err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -82,7 +59,7 @@ func getUserById(w http.ResponseWriter, r *http.Request) {
 	pkg.WriteJson[UserGET](w, http.StatusOK, user)
 }
 
-func createUser(w http.ResponseWriter, r *http.Request) {
+func createUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	userDto, err := pkg.GetStructFromJson[UserPOST](r.Body)
 	if err != nil {
 		pkg.PrintErr(err)
